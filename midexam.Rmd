@@ -1,0 +1,128 @@
+---
+title: "Midterm Exam"
+author: "Lin Zhou"
+date: "11/2/2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instruction
+
+This is your midterm exam that you are expected to work on it alone.  You may NOT  discuss any of the content of your exam with anyone except your instructor. This includes text, chat, email and other online forums.  We expect you to respect and follow the [GRS Academic and Professional Conduct Code](http://www.bu.edu/cas/files/2017/02/GRS-Academic-Conduct-Code-Final.pdf). 
+
+Although you may NOT ask anyone directly, you are allowed to use external resources such as R codes on the Internet.  If you do use someone's code, please make sure you clearly cite the origin of the code.
+
+When you finish, please compile and submit the PDF file and the link to the GitHub repository that contains the entire analysis.
+
+
+## Introduction
+
+In this exam, you will act as both the client and the consultant for the data that you collected in the data collection exercise (20pts).  Please note that you are not allowed to change the data.  The goal of this exam is to demonstrate your ability to perform the statistical analysis that you learned in this class so far.  It is important to note that significance of the analysis is not the main goal of this exam but the focus is on the appropriateness of your approaches.
+
+### Data Description (10pts)
+
+Please explain what your data is about and what the comparison of interest is.  In the process, please make sure to demonstrate that you can load your data properly into R.
+
+```{r}
+library(MASS)
+library(pwr)
+library(ggplot2)
+library(arm)
+library(nnet)
+data1 <- read.csv("data.csv")
+head(data1)
+```
+The response variable of the data is TUP "Average cell phone using time of individuals per day". I am going to explore different factors which might affect the cell phone using time like age, occupation, average working time, whether in relationship with others, whether paying attention to current news and so on. (All the variables are categorical variables). I want to focus on the connections between TUP and AWT(average working time per day), CN(whether interested in current news), IR(whether in relationship with others) because for other predictive variables, the sample is too small so that I can't extract useful information through the dataset.
+
+
+### EDA (10pts)
+
+Please create one (maybe two) figure(s) that highlights the contrast of interest.  Make sure you think ahead and match your figure with the analysis.  For example, if your model requires you to take a log, make sure you take log in the figure as well.
+
+```{r}
+inv <- invlogit(data1$TUP)
+ggplot(data1, aes(x = AWT, y = inv, colour = IR)) + 
+  geom_line() + 
+  facet_grid(CN ~., scales = "free")
+```
+I planned to present the data as graphs with y-axis as frequency, x-axis as TUP, color as IR, and in 2 graphs one is CN =1, the other is CN =2. But when I clear up all situations, I found there are total 96 situations which can not be presented on graphs for there are only 20 observations.
+
+
+### Power Analysis (10pts)
+
+Please perform power analysis on the project.  Use 80% power, the sample size you used and infer the level of effect size you will be able to detect.  Discuss whether your sample size was enough for the problem at hand.  Please note that method of power analysis should match the analysis.  Also, please clearly state why you should NOT use the effect size from the fitted model.
+
+```{r}
+r_power <- pwr.r.test(n = 20, sig.level = 0.05, power = 0.8, alternative = "two.sided")
+r_power
+plot(r_power)
+```
+
+The effect size is 0.582 which is r = 0.582, suggests the points are relatively close to fitted line. But in this case, I don't think the sample size is large enough for us to fit and analysis. From my understanding, the effect size corresponds to true difference between populations. The value of effect size represents the probability that this difference would be significant. The effect size tells us whether the difference we observed is the true difference in reality. Thus, if we use the effect size from the fitted model, the comparison makes no sense.
+
+
+### Modeling (10pts)
+
+Please pick a regression model that best fits your data and fit your model.  Please make sure you describe why you decide to choose the model. Also, if you are using GLM, make sure you explain your choice of link function as well.
+```{r }
+fit1 <- polr(data = data1, factor(TUP) ~ IR + AWT + CN)
+summary(fit1)
+```
+I pick multinomial regression model since the outcome of data is ordinal categorical(cell phone using time less than 2 hours as 1, 2-4 hours as 2 and so on). I focus on three predictive variables IR(whether in relationship with others), AWT(average working time per day), CN(whether pay attention to current news). I use the polr function which is used to fit a logistic regression model to an ordered factor response.As a result, the link function should be logit. 
+
+### Validation (10pts)
+
+Please perform a necessary validation and argue why your choice of the model is appropriate.  
+
+```{r }
+fit2 <-  multinom(factor(TUP) ~ IR + AWT + CN, data = data1)
+summary(fit2)
+```
+If the dataset is large, I would like to use cross validation. But the sample size is small, as a result, I choose to fit the data into different models and compare the AIC of these models to check whether it is the best one among these assumed models.
+
+### Inference (10pts)
+
+Based on the result so far please perform statistical inference to compare the comparison of interest.
+
+```{r}
+coef1 <- coef(summary(fit1))
+p <- pnorm(abs(coef1[, "t value"]), lower.tail = FALSE) * 2
+coef1 <- cbind(coef1, "p value" = p)
+ci <- confint(fit1)
+confint.default(fit1)
+exp(cbind(OR = coef(fit1), ci))
+```
+CN: For people who do not pay attention to current news, the odds of time of using cellphone per day(high time scale versus low time scale) is multiplied 1.868 times of times of using cellphone of those who pay attention to current news, holding constant all other variables.  
+AWT: For people who have more average working time per day(one scale higher), the odds of time of using cellphone per day(high time scale versus low time scale) is multiplied 1.672 times of times of using cellphone of those who have less average working time, holding constant all other variables.
+IR: For people who do not have relationship with others, the odds of time of using cellphone per day(high time scale versus low time scale) is multiplied 0.449 times of times of using cellphone of those who have in relationship with others, holding constant all other variables.  
+
+
+### Discussion (10pts)
+
+Please clearly state your conclusion and the implication of the result.
+From the model, I can not find strong connections between cellphone using time and IR, AWT, CN. The scope of the confidence interval is extremely wide. There are three possible reasons. The first one is that the sample size is too small which can not provide us with enough information and data to show the connection. The second one is that there might exist more suitable model for this data. The last one is actually there does not exist any connections between this response variables and predictive variables.
+
+### Limitations and future opportunity. (10pts)
+
+Please list concerns about your analysis.  Also, please state how you might go about fixing the problem in your future study.
+1. The model does not fit well because of the limitation of the sample. Need to expand the scope of the investigated population since they are not diversified.
+2. Moreover, in data collection part, from my perspective, it's better to set the outcome variable continuous. 
+3. Besides, the predictive variables do not seem to be independent based on the results and common sense, maybe I need to do principal component analysis to explore the latent structure among variables.  
+
+Reference: arm package: https://cran.r-project.org/web/packages/arm/index.html  
+pwr package:https://cran.r-project.org/web/packages/pwr/pwr.pdf  
+ggplot2 package:https://cran.r-project.org/web/packages/ggplot2/index.html  
+nnet package:https://cran.r-project.org/web/packages/nnet/nnet.pdf  
+MASS package:https://cran.r-project.org/web/packages/MASS/index.html
+
+
+
+### Comments or questions
+If you have any comments or questions, please write them here.
+
